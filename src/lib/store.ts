@@ -108,13 +108,27 @@ export const store = {
     return newBet
   },
 
-  // For simulating race results
-  finishRace: (raceId: string, results: string[]) => {
+  // Set results when race starts (for animation), but keep status as live
+  setRaceResults: (raceId: string, results: string[]) => {
     races = races.map(r =>
       r.id === raceId
-        ? { ...r, status: 'finished' as RaceStatus, results }
+        ? { ...r, status: 'live' as RaceStatus, results }
         : r
     )
+  },
+
+  // For simulating race results
+  finishRace: (raceId: string) => {
+    races = races.map(r =>
+      r.id === raceId
+        ? { ...r, status: 'finished' as RaceStatus }
+        : r
+    )
+
+    const race = races.find(r => r.id === raceId)
+    if (!race?.results) return
+
+    const results = race.results
 
     // Settle bets for this race
     bets = bets.map(bet => {

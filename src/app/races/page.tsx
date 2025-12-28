@@ -250,7 +250,15 @@ export default function RacesPage() {
 
       {/* Horse List */}
       <div className={cn("flex-1 overflow-y-auto", isSelectionComplete && "pb-20")}>
-        {selectedRace?.horses.map(horse => (
+        {selectedRace && [...selectedRace.horses]
+          .sort((a, b) => {
+            // Sort by finish order for completed races
+            if (selectedRace.status === 'finished' && selectedRace.results) {
+              return selectedRace.results.indexOf(a.id) - selectedRace.results.indexOf(b.id)
+            }
+            return 0
+          })
+          .map(horse => (
           <HorseRow
             key={horse.id}
             horse={horse}
@@ -455,10 +463,14 @@ function RaceAnimation({
   isAnimating: boolean
   onClose: () => void
 }) {
+  const { bets } = useGame()
   const [progress, setProgress] = useState<Record<string, number>>({})
   const [isReplaying, setIsReplaying] = useState(false)
   const [replayFinished, setReplayFinished] = useState(false)
   const [finishOrder, setFinishOrder] = useState<string[]>([]) // Track actual crossing order
+
+  // Get bets for this race
+  const raceBets = bets.filter(bet => bet.raceId === race.id)
 
 
   // Start replay automatically for finished races
@@ -487,7 +499,7 @@ function RaceAnimation({
       return
     }
 
-    // For replay, calculate target speeds based on results
+    // Calculate target speeds based on results (works for both live and replay now)
     // Ensure all horses finish, with appropriate gaps based on placement
     const targetSpeeds: Record<string, number> = {}
     if (race.results) {
@@ -509,8 +521,9 @@ function RaceAnimation({
 
         race.horses.forEach(h => {
           const current = prev[h.id] || 0
-          const baseSpeed = isReplaying ? (targetSpeeds[h.id] || 1.5) : (0.5 + Math.random() * 2)
-          const speed = baseSpeed + (Math.random() * 0.3 - 0.15)
+          // Use predetermined speeds based on results (now available for live races too)
+          const baseSpeed = targetSpeeds[h.id] || 1.8
+          const speed = baseSpeed + (Math.random() * 0.2 - 0.1)
           next[h.id] = Math.min(current + speed, 100)
 
           if (next[h.id] < 100) allFinished = false
@@ -628,6 +641,107 @@ function RaceAnimation({
           )
         })}
       </div>
+
+      {/* Your Bets for this race */}
+      {raceBets.length > 0 && (
+        <div className="border-t p-4">
+          <h3 className="text-sm font-medium text-muted-foreground mb-3">Your Bets</h3>
+          {/* Each bet is ~70px tall + 8px gap. Show 3 full + peek of 4th */}
+          <div
+            className={cn(
+              "space-y-2",
+              raceBets.length > 3 && "max-h-[270px] overflow-y-auto"
+            )}
+          >
+            {[...raceBets]
+              .sort((a, b) => {
+                // Post-race: winners first, then by potential payout
+                if (race.status === 'finished') {
+                  if (a.status === 'won' && b.status !== 'won') return -1
+                  if (b.status === 'won' && a.status !== 'won') return 1
+                }
+                // Then sort by potential payout (amount * multiplier), highest first
+                const aPayoutPotential = a.amount * PAYOUT_MULTIPLIERS[a.betType]
+                const bPayoutPotential = b.amount * PAYOUT_MULTIPLIERS[b.betType]
+                return bPayoutPotential - aPayoutPotential
+              })
+              .map(bet => {
+              const betTypeLabel = bet.betType.charAt(0).toUpperCase() + bet.betType.slice(1)
+              const selectedHorses = bet.selections.map(id => race.horses.find(h => h.id === id))
+
+              const isMultiPick = bet.selections.length > 1
+
+              return (
+                <div
+                  key={bet.id}
+                  className={cn(
+                    "p-3 rounded-lg border",
+                    bet.status === 'won' && "bg-green-500/10 border-green-500/30",
+                    bet.status === 'lost' && "bg-red-500/10 border-red-500/30",
+                    bet.status === 'active' && "bg-muted/50"
+                  )}
+                >
+                  {/* Row 1: Bet type + status + amount */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-sm">{betTypeLabel}</span>
+                      <Badge
+                        variant="secondary"
+                        className={cn(
+                          "text-xs",
+                          bet.status === 'won' && "bg-green-500 text-white",
+                          bet.status === 'lost' && "bg-red-500 text-white"
+                        )}
+                      >
+                        {bet.status === 'active' ? 'Active' : bet.status === 'won' ? 'Won' : 'Lost'}
+                      </Badge>
+                    </div>
+                    <span className="text-sm font-medium">${bet.amount.toFixed(2)}</span>
+                  </div>
+
+                  {/* Row 2: Horse selections + payout */}
+                  <div className="flex items-center justify-between mt-1.5">
+                    <div className="flex items-center gap-1">
+                      {isMultiPick ? (
+                        // Multi-pick: just colored boxes with numbers
+                        selectedHorses.map((horse, i) => (
+                          <div key={horse?.id || i} className="flex items-center">
+                            {i > 0 && (
+                              <span className="text-muted-foreground text-xs mx-0.5">→</span>
+                            )}
+                            <div
+                              className="w-5 h-5 rounded text-[11px] flex items-center justify-center text-white font-semibold"
+                              style={{ backgroundColor: horse?.color }}
+                            >
+                              {horse?.number}
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        // Single pick: colored box + name
+                        selectedHorses.map((horse) => (
+                          <div key={horse?.id} className="flex items-center gap-1.5">
+                            <div
+                              className="w-5 h-5 rounded text-[11px] flex items-center justify-center text-white font-semibold"
+                              style={{ backgroundColor: horse?.color }}
+                            >
+                              {horse?.number}
+                            </div>
+                            <span className="text-sm text-muted-foreground">{horse?.name}</span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                    {bet.status === 'won' && bet.payout && (
+                      <span className="text-sm text-green-500 font-medium">+${bet.payout.toFixed(2)}</span>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

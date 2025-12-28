@@ -58,21 +58,25 @@ export function GameProvider({ children }: { children: ReactNode }) {
     const race = store.getRace(raceId)
     if (!race || race.status === 'finished') return
 
-    // Set race to live
+    // Generate results upfront so animation can use them
+    const horses = race.horses
+    const shuffled = [...horses].sort(() => Math.random() - 0.5)
+    const results = shuffled.map(h => h.id)
+
+    // Set results immediately (keeps status as 'live')
+    store.setRaceResults(raceId, results)
+
+    // Set race to animating
     setState(prev => ({
       ...prev,
       currentRaceAnimation: raceId,
+      races: store.getRaces(),
     }))
 
-    // Simulate race duration (5 seconds)
+    // Simulate race duration (7 seconds to ensure animation completes first)
     setTimeout(() => {
-      // Generate random results
-      const horses = race.horses
-      const shuffled = [...horses].sort(() => Math.random() - 0.5)
-      const results = shuffled.slice(0, 3).map(h => h.id)
-
-      // Finish race and settle bets
-      store.finishRace(raceId, results)
+      // Finish race and settle bets (uses the pre-set results)
+      store.finishRace(raceId)
 
       setState(prev => ({
         ...prev,
@@ -81,7 +85,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         bets: store.getBets(),
         balance: store.getBalance(),
       }))
-    }, 5000)
+    }, 7000)
   }, [])
 
   const isRaceAnimating = useCallback((raceId: string) => {
