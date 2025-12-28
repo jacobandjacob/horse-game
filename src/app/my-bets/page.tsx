@@ -29,7 +29,7 @@ export default function MyBetsPage() {
         <button
           onClick={() => setTab('active')}
           className={cn(
-            "flex-1 py-3 text-sm font-medium border-b-2 transition-colors",
+            "flex-1 py-3 text-sm border-b-2 transition-colors",
             tab === 'active'
               ? "border-primary text-primary"
               : "border-transparent text-muted-foreground"
@@ -40,7 +40,7 @@ export default function MyBetsPage() {
         <button
           onClick={() => setTab('past')}
           className={cn(
-            "flex-1 py-3 text-sm font-medium border-b-2 transition-colors",
+            "flex-1 py-3 text-sm border-b-2 transition-colors",
             tab === 'past'
               ? "border-primary text-primary"
               : "border-transparent text-muted-foreground"

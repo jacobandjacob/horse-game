@@ -13,7 +13,7 @@ export default function HomePage() {
   return (
     <div className="p-4 space-y-6">
       <header className="text-center pt-4">
-        <h1 className="text-2xl font-bold">Gemini Downs</h1>
+        <h1 className="text-6xl font-logo">Gemini Downs</h1>
         <p className="text-muted-foreground text-sm">
           {new Date().toLocaleDateString('en-US', {
             weekday: 'long',
@@ -32,7 +32,7 @@ export default function HomePage() {
         <div className="bg-card rounded-lg p-4">
           <div className="flex items-center gap-2 mb-2">
             <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-            <span className="text-sm font-medium">Live Now</span>
+            <span className="text-sm font-bold text-red-500">LIVE</span>
           </div>
           <p className="font-semibold">Race {liveRace.number}</p>
           <p className="text-sm text-muted-foreground">{liveRace.distance}</p>

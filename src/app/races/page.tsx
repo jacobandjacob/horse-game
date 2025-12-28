@@ -25,7 +25,7 @@ const BET_TYPES: { value: BetType; label: string; picks: number }[] = [
   { value: 'trifecta', label: 'Trifecta', picks: 3 },
 ]
 
-const PRESET_AMOUNTS = [2, 5, 10, 20]
+const INCREMENT_AMOUNTS = [1, 5, 20, 100]
 
 const PAYOUT_MULTIPLIERS: Record<BetType, number> = {
   win: 5,
@@ -42,7 +42,8 @@ export default function RacesPage() {
   const [betType, setBetType] = useState<BetType>('win')
   const [selections, setSelections] = useState<string[]>([])
   const [drawerOpen, setDrawerOpen] = useState(false)
-  const [betAmount, setBetAmount] = useState(2)
+  const [betAmount, setBetAmount] = useState(5)
+  const [increment, setIncrement] = useState(5)
   const [showRaceView, setShowRaceView] = useState(false)
 
   const selectedRace = races.find(r => r.id === selectedRaceId)
@@ -101,7 +102,7 @@ export default function RacesPage() {
       toast.success('Bet Placed!')
       setDrawerOpen(false)
       setSelections([])
-      setBetAmount(2)
+      setBetAmount(5)
     }
   }
 
@@ -111,8 +112,8 @@ export default function RacesPage() {
     }
   }
 
-  const adjustAmount = (delta: number) => {
-    setBetAmount(prev => Math.max(1, Math.min(prev + delta, balance)))
+  const adjustAmount = (direction: number) => {
+    setBetAmount(prev => Math.max(1, Math.min(prev + (direction * increment), balance)))
   }
 
 
@@ -133,7 +134,7 @@ export default function RacesPage() {
       <header className="p-4 border-b">
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-2">
-            <h1 className="text-lg font-bold">Gemini Downs</h1>
+            <h1 className="text-2xl font-logo">Gemini Downs</h1>
             <button
               onClick={resetGame}
               className="text-xs px-2 py-1 rounded bg-muted text-muted-foreground hover:bg-muted/80"
@@ -166,12 +167,12 @@ export default function RacesPage() {
                 race.status === 'finished' && "opacity-50"
               )}
             >
-              <div className="text-[10px] text-muted-foreground">RACE {race.number}</div>
+              <div className="text-xs text-muted-foreground">R{race.number}</div>
               <div className="text-sm font-bold mt-0.5">
                 {race.status === 'live' ? (
                   <span className="text-red-500">LIVE</span>
                 ) : race.status === 'finished' ? (
-                  'Done'
+                  'END'
                 ) : (
                   `${race.minutesToPost}m`
                 )}
@@ -188,7 +189,7 @@ export default function RacesPage() {
             {selectedRace.status === 'live' ? (
               <>
                 <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-                <span className="text-sm font-medium">LIVE NOW</span>
+                <span className="text-sm font-bold text-red-500">LIVE</span>
               </>
             ) : selectedRace.status === 'finished' ? (
               <span className="text-sm text-muted-foreground">Finished</span>
@@ -242,7 +243,7 @@ export default function RacesPage() {
           <span>Pick {currentBetType.picks === 2 ? '1st and 2nd' : '1st, 2nd, and 3rd'} in exact order</span>
           <div className="flex gap-4">
             {Array.from({ length: currentBetType.picks }, (_, i) => (
-              <span key={i} className="font-medium">{i + 1}{i === 0 ? 'st' : i === 1 ? 'nd' : 'rd'}</span>
+              <span key={i}>{i + 1}{i === 0 ? 'st' : i === 1 ? 'nd' : 'rd'}</span>
             ))}
           </div>
         </div>
@@ -299,7 +300,7 @@ export default function RacesPage() {
                 {selections.map((id, i) => {
                   const horse = selectedRace?.horses.find(h => h.id === id)
                   return (
-                    <p key={id} className="font-medium">
+                    <p key={id}>
                       {currentBetType.picks > 1 && `${i + 1}${i === 0 ? 'st' : i === 1 ? 'nd' : 'rd'}: `}
                       {horse?.name} ({horse?.odds})
                     </p>
@@ -330,22 +331,25 @@ export default function RacesPage() {
               </div>
             </div>
 
-            {/* Preset Amounts */}
-            <div className="grid grid-cols-4 gap-2">
-              {PRESET_AMOUNTS.map(amount => (
-                <button
-                  key={amount}
-                  onClick={() => setBetAmount(amount)}
-                  className={cn(
-                    "py-3 rounded-lg border text-sm font-medium transition-colors",
-                    betAmount === amount
-                      ? "bg-primary text-primary-foreground border-primary"
-                      : "bg-card border-border hover:border-foreground"
-                  )}
-                >
-                  ${amount}
-                </button>
-              ))}
+            {/* Increment Selector */}
+            <div>
+              <p className="text-sm text-muted-foreground mb-3">Increment</p>
+              <div className="grid grid-cols-4 gap-2">
+                {INCREMENT_AMOUNTS.map(amount => (
+                  <button
+                    key={amount}
+                    onClick={() => setIncrement(amount)}
+                    className={cn(
+                      "py-3 rounded-lg border text-sm transition-colors",
+                      increment === amount
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-card border-border hover:border-foreground"
+                    )}
+                  >
+                    ${amount}
+                  </button>
+                ))}
+              </div>
             </div>
 
             <p className="text-xs text-muted-foreground text-center">
@@ -438,7 +442,7 @@ function HorseRow({
                 key={i}
                 onClick={() => onSelect(horse.id, i)}
                 className={cn(
-                  "w-8 h-8 rounded-full border-2 text-sm font-medium transition-colors",
+                  "w-8 h-8 rounded-full border-2 text-sm transition-colors",
                   selections[i] === horse.id
                     ? "bg-primary border-primary text-primary-foreground"
                     : "border-muted-foreground text-muted-foreground"
@@ -561,11 +565,11 @@ function RaceAnimation({
             <p className="text-xs text-muted-foreground">{race.distance}</p>
           </div>
           {showingAnimation ? (
-            <Badge variant="destructive" className="animate-pulse">
+            <span className="text-sm font-bold text-red-500 animate-pulse">
               {isReplaying ? 'REPLAY' : 'LIVE'}
-            </Badge>
+            </span>
           ) : (
-            <Badge variant="secondary">FINISHED</Badge>
+            <span className="text-sm text-muted-foreground">FINISHED</span>
           )}
         </div>
         <div className="flex gap-2 mt-3">
@@ -645,7 +649,7 @@ function RaceAnimation({
       {/* Your Bets for this race */}
       {raceBets.length > 0 && (
         <div className="border-t p-4">
-          <h3 className="text-sm font-medium text-muted-foreground mb-3">Your Bets</h3>
+          <h3 className="text-sm text-muted-foreground mb-3">Your Bets</h3>
           {/* Each bet is ~70px tall + 8px gap. Show 3 full + peek of 4th */}
           <div
             className={cn(
@@ -684,7 +688,7 @@ function RaceAnimation({
                   {/* Row 1: Bet type + status + amount */}
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className="font-medium text-sm">{betTypeLabel}</span>
+                      <span className="text-sm">{betTypeLabel}</span>
                       <Badge
                         variant="secondary"
                         className={cn(
@@ -696,7 +700,7 @@ function RaceAnimation({
                         {bet.status === 'active' ? 'Active' : bet.status === 'won' ? 'Won' : 'Lost'}
                       </Badge>
                     </div>
-                    <span className="text-sm font-medium">${bet.amount.toFixed(2)}</span>
+                    <span className="text-sm">${bet.amount.toFixed(2)}</span>
                   </div>
 
                   {/* Row 2: Horse selections + payout */}
@@ -733,7 +737,7 @@ function RaceAnimation({
                       )}
                     </div>
                     {bet.status === 'won' && bet.payout && (
-                      <span className="text-sm text-green-500 font-medium">+${bet.payout.toFixed(2)}</span>
+                      <span className="text-sm text-green-500">+${bet.payout.toFixed(2)}</span>
                     )}
                   </div>
                 </div>
