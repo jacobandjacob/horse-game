@@ -13,7 +13,7 @@ export default function HomePage() {
   return (
     <div className="p-4 space-y-6">
       <header className="text-center pt-4">
-        <h1 className="text-6xl font-logo">Gemini Downs</h1>
+        <h1 className="text-6xl font-logo">Horsie Downs</h1>
         <p className="text-muted-foreground text-sm">
           {new Date().toLocaleDateString('en-US', {
             weekday: 'long',

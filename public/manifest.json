@@ -1,6 +1,6 @@
 {
-  "name": "Gemini Downs",
-  "short_name": "Gemini Downs",
+  "name": "Horsie Downs",
+  "short_name": "Horsie Downs",
   "description": "Horse race betting game",
   "start_url": "/",
   "display": "standalone",

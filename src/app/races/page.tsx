@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/drawer'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
-import { Minus, Plus, Play } from 'lucide-react'
+import { Minus, Plus, Play, Check } from 'lucide-react'
 
 const BET_TYPES: { value: BetType; label: string; picks: number }[] = [
   { value: 'win', label: 'Win', picks: 1 },
@@ -45,6 +45,7 @@ export default function RacesPage() {
   const [betAmount, setBetAmount] = useState(5)
   const [increment, setIncrement] = useState(5)
   const [showRaceView, setShowRaceView] = useState(false)
+  const [betConfirmed, setBetConfirmed] = useState(false)
 
   const selectedRace = races.find(r => r.id === selectedRaceId)
   const currentBetType = BET_TYPES.find(b => b.value === betType)!
@@ -61,6 +62,19 @@ export default function RacesPage() {
   useEffect(() => {
     setFullScreen(showRaceView)
   }, [showRaceView, setFullScreen])
+
+  // Auto-close drawer after bet confirmation
+  useEffect(() => {
+    if (betConfirmed) {
+      const timer = setTimeout(() => {
+        setDrawerOpen(false)
+        setBetConfirmed(false)
+        setSelections([])
+        setBetAmount(5)
+      }, 1200)
+      return () => clearTimeout(timer)
+    }
+  }, [betConfirmed])
 
   const handleHorseSelect = (horseId: string, position?: number) => {
     if (currentBetType.picks === 1) {
@@ -99,10 +113,7 @@ export default function RacesPage() {
     )
 
     if (success) {
-      toast.success('Bet Placed!')
-      setDrawerOpen(false)
-      setSelections([])
-      setBetAmount(5)
+      setBetConfirmed(true)
     }
   }
 
@@ -134,7 +145,7 @@ export default function RacesPage() {
       <header className="p-4 border-b">
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-logo">Gemini Downs</h1>
+            <h1 className="text-2xl font-logo">Horsie Downs</h1>
             <button
               onClick={resetGame}
               className="text-xs px-2 py-1 rounded bg-muted text-muted-foreground hover:bg-muted/80"
@@ -287,83 +298,107 @@ export default function RacesPage() {
       )}
 
       {/* Bet Amount Drawer */}
-      <Drawer open={drawerOpen} onOpenChange={setDrawerOpen}>
+      <Drawer open={drawerOpen} onOpenChange={(open) => {
+        setDrawerOpen(open)
+        if (!open) setBetConfirmed(false)
+      }}>
         <DrawerContent className="max-h-[85vh]">
-          <DrawerHeader>
-            <DrawerTitle>Place Your Bet</DrawerTitle>
-          </DrawerHeader>
-          <div className="p-4 space-y-6">
-            {/* Bet Summary */}
-            <div className="bg-muted rounded-lg p-4">
-              <p className="text-sm text-muted-foreground">Race {selectedRace?.number} - {currentBetType.label}</p>
-              <div className="mt-2 space-y-1">
-                {selections.map((id, i) => {
-                  const horse = selectedRace?.horses.find(h => h.id === id)
-                  return (
-                    <p key={id}>
-                      {currentBetType.picks > 1 && `${i + 1}${i === 0 ? 'st' : i === 1 ? 'nd' : 'rd'}: `}
-                      {horse?.name} ({horse?.odds})
-                    </p>
-                  )
-                })}
+          {betConfirmed ? (
+            // Confirmation state
+            <>
+              <DrawerHeader>
+                <DrawerTitle>Place Your Bet</DrawerTitle>
+              </DrawerHeader>
+              <div className="p-4 flex-1 flex flex-col items-center justify-center">
+                <div className="w-16 h-16 rounded-full bg-green-500 flex items-center justify-center mb-4">
+                  <Check className="w-8 h-8 text-white" />
+                </div>
+                <h2 className="text-xl font-bold">Bet Placed!</h2>
               </div>
-            </div>
+              <DrawerFooter className="pb-10">
+                <div className="h-[88px]" />
+              </DrawerFooter>
+            </>
+          ) : (
+            // Normal bet entry state
+            <>
+              <DrawerHeader>
+                <DrawerTitle>Place Your Bet</DrawerTitle>
+              </DrawerHeader>
+              <div className="p-4 space-y-6">
+                {/* Bet Summary */}
+                <div className="bg-muted rounded-lg p-4">
+                  <p className="text-sm text-muted-foreground">Race {selectedRace?.number} - {currentBetType.label}</p>
+                  <div className="mt-2 space-y-1">
+                    {selections.map((id, i) => {
+                      const horse = selectedRace?.horses.find(h => h.id === id)
+                      return (
+                        <p key={id}>
+                          {currentBetType.picks > 1 && `${i + 1}${i === 0 ? 'st' : i === 1 ? 'nd' : 'rd'}: `}
+                          {horse?.name} ({horse?.odds})
+                        </p>
+                      )
+                    })}
+                  </div>
+                </div>
 
-            {/* Amount Stepper */}
-            <div>
-              <p className="text-sm text-muted-foreground mb-3">Wager Amount</p>
-              <div className="flex items-center justify-center gap-6 p-4 border rounded-lg">
-                <button
-                  onClick={() => adjustAmount(-1)}
-                  className="w-12 h-12 rounded-full border-2 border-muted-foreground flex items-center justify-center text-muted-foreground hover:border-foreground hover:text-foreground transition-colors"
-                >
-                  <Minus className="w-5 h-5" />
-                </button>
-                <span className="text-4xl font-bold min-w-[100px] text-center">
-                  ${betAmount}
-                </span>
-                <button
-                  onClick={() => adjustAmount(1)}
-                  className="w-12 h-12 rounded-full border-2 border-muted-foreground flex items-center justify-center text-muted-foreground hover:border-foreground hover:text-foreground transition-colors"
-                >
-                  <Plus className="w-5 h-5" />
-                </button>
+                {/* Amount Stepper */}
+                <div>
+                  <p className="text-sm text-muted-foreground mb-3">Wager Amount</p>
+                  <div className="flex items-center justify-center gap-6 p-4 border rounded-lg">
+                    <button
+                      onClick={() => adjustAmount(-1)}
+                      className="w-12 h-12 rounded-full border-2 border-muted-foreground flex items-center justify-center text-muted-foreground hover:border-foreground hover:text-foreground transition-colors"
+                    >
+                      <Minus className="w-5 h-5" />
+                    </button>
+                    <span className="text-4xl font-bold min-w-[100px] text-center">
+                      ${betAmount}
+                    </span>
+                    <button
+                      onClick={() => adjustAmount(1)}
+                      className="w-12 h-12 rounded-full border-2 border-muted-foreground flex items-center justify-center text-muted-foreground hover:border-foreground hover:text-foreground transition-colors"
+                    >
+                      <Plus className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Increment Selector */}
+                <div>
+                  <p className="text-sm text-muted-foreground mb-3">Increment</p>
+                  <div className="grid grid-cols-4 gap-2">
+                    {INCREMENT_AMOUNTS.map(amount => (
+                      <button
+                        key={amount}
+                        onClick={() => setIncrement(amount)}
+                        className={cn(
+                          "py-3 rounded-lg border text-sm transition-colors",
+                          increment === amount
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "bg-card border-border hover:border-foreground"
+                        )}
+                      >
+                        ${amount}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <p className="text-xs text-muted-foreground text-center">
+                  Available: ${balance.toFixed(2)}
+                </p>
               </div>
-            </div>
-
-            {/* Increment Selector */}
-            <div>
-              <p className="text-sm text-muted-foreground mb-3">Increment</p>
-              <div className="grid grid-cols-4 gap-2">
-                {INCREMENT_AMOUNTS.map(amount => (
-                  <button
-                    key={amount}
-                    onClick={() => setIncrement(amount)}
-                    className={cn(
-                      "py-3 rounded-lg border text-sm transition-colors",
-                      increment === amount
-                        ? "bg-primary text-primary-foreground border-primary"
-                        : "bg-card border-border hover:border-foreground"
-                    )}
-                  >
-                    ${amount}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <p className="text-xs text-muted-foreground text-center">
-              Available: ${balance.toFixed(2)}
-            </p>
-          </div>
-          <DrawerFooter className="pb-10">
-            <Button onClick={handlePlaceBet} size="lg" className="w-full">
-              Place ${betAmount} Bet
-            </Button>
-            <DrawerClose asChild>
-              <Button variant="outline" className="w-full">Cancel</Button>
-            </DrawerClose>
-          </DrawerFooter>
+              <DrawerFooter className="pb-10">
+                <Button onClick={handlePlaceBet} size="lg" className="w-full">
+                  Place ${betAmount} Bet
+                </Button>
+                <DrawerClose asChild>
+                  <Button variant="outline" className="w-full">Cancel</Button>
+                </DrawerClose>
+              </DrawerFooter>
+            </>
+          )}
         </DrawerContent>
       </Drawer>
     </div>
