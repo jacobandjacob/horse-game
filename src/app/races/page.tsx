@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useGame } from '@/lib/game-context'
-import { BetType, Horse } from '@/lib/store'
+import { BetType, Horse, Race } from '@/lib/store'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -27,8 +27,16 @@ const BET_TYPES: { value: BetType; label: string; picks: number }[] = [
 
 const PRESET_AMOUNTS = [2, 5, 10, 20]
 
+const PAYOUT_MULTIPLIERS: Record<BetType, number> = {
+  win: 5,
+  place: 2.5,
+  show: 1.5,
+  exacta: 25,
+  trifecta: 100,
+}
+
 export default function RacesPage() {
-  const { races, balance, placeBet, startRace, isRaceAnimating } = useGame()
+  const { races, balance, placeBet, startRace, isRaceAnimating, resetGame, setFullScreen } = useGame()
 
   const [selectedRaceId, setSelectedRaceId] = useState(races[0]?.id)
   const [betType, setBetType] = useState<BetType>('win')
@@ -47,6 +55,11 @@ export default function RacesPage() {
       setShowRaceView(true)
     }
   }, [isAnimating])
+
+  // Toggle full screen mode when race view is shown/hidden
+  useEffect(() => {
+    setFullScreen(showRaceView)
+  }, [showRaceView, setFullScreen])
 
   const handleHorseSelect = (horseId: string, position?: number) => {
     if (currentBetType.picks === 1) {
@@ -102,6 +115,7 @@ export default function RacesPage() {
     setBetAmount(prev => Math.max(1, Math.min(prev + delta, balance)))
   }
 
+
   // Race animation view
   if (showRaceView && selectedRace) {
     return (
@@ -118,11 +132,14 @@ export default function RacesPage() {
       {/* Header */}
       <header className="p-4 border-b">
         <div className="flex justify-between items-center">
-          <div>
+          <div className="flex items-center gap-2">
             <h1 className="text-lg font-bold">Gemini Downs</h1>
-            <p className="text-xs text-muted-foreground">
-              {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-            </p>
+            <button
+              onClick={resetGame}
+              className="text-xs px-2 py-1 rounded bg-muted text-muted-foreground hover:bg-muted/80"
+            >
+              Reset
+            </button>
           </div>
           <div className="text-right">
             <p className="text-xs text-muted-foreground">Balance</p>
@@ -434,13 +451,15 @@ function RaceAnimation({
   isAnimating,
   onClose,
 }: {
-  race: typeof import('@/lib/store').store extends { getRace: (id: string) => infer R } ? NonNullable<R> : never
+  race: Race
   isAnimating: boolean
   onClose: () => void
 }) {
   const [progress, setProgress] = useState<Record<string, number>>({})
   const [isReplaying, setIsReplaying] = useState(false)
   const [replayFinished, setReplayFinished] = useState(false)
+  const [finishOrder, setFinishOrder] = useState<string[]>([]) // Track actual crossing order
+
 
   // Start replay automatically for finished races
   useEffect(() => {
@@ -469,25 +488,21 @@ function RaceAnimation({
     }
 
     // For replay, calculate target speeds based on results
+    // Ensure all horses finish, with appropriate gaps based on placement
     const targetSpeeds: Record<string, number> = {}
     if (race.results) {
       race.horses.forEach(h => {
         const position = race.results!.indexOf(h.id)
-        // Winner is fastest, others progressively slower
-        if (position === 0) targetSpeeds[h.id] = 2.2
-        else if (position === 1) targetSpeeds[h.id] = 2.0
-        else if (position === 2) targetSpeeds[h.id] = 1.8
-        else targetSpeeds[h.id] = 1.0 + Math.random() * 0.5
+        // Winner is fastest, others progressively slower but all will finish
+        if (position === 0) targetSpeeds[h.id] = 2.0
+        else if (position === 1) targetSpeeds[h.id] = 1.85
+        else if (position === 2) targetSpeeds[h.id] = 1.7
+        else targetSpeeds[h.id] = 1.4 + (race.horses.length - position) * 0.05
       })
     }
 
-    let frameCount = 0
-    const maxFrames = 50 // ~5 seconds at 100ms intervals
-
     // Animate progress
     const interval = setInterval(() => {
-      frameCount++
-
       setProgress(prev => {
         const next: Record<string, number> = {}
         let allFinished = true
@@ -495,19 +510,23 @@ function RaceAnimation({
         race.horses.forEach(h => {
           const current = prev[h.id] || 0
           const baseSpeed = isReplaying ? (targetSpeeds[h.id] || 1.5) : (0.5 + Math.random() * 2)
-          const speed = baseSpeed + (Math.random() * 0.5 - 0.25)
-          const target = isReplaying ? 100 : 95
-          next[h.id] = Math.min(current + speed, target)
+          const speed = baseSpeed + (Math.random() * 0.3 - 0.15)
+          next[h.id] = Math.min(current + speed, 100)
 
-          if (next[h.id] < target) allFinished = false
+          if (next[h.id] < 100) allFinished = false
+
+          // Track when horses cross the finish line
+          if (current < 100 && next[h.id] >= 100) {
+            setFinishOrder(order => order.includes(h.id) ? order : [...order, h.id])
+          }
         })
 
-        // End replay after animation completes
-        if ((allFinished || frameCount >= maxFrames) && isReplaying) {
+        // End replay only after ALL horses have crossed the finish line
+        if (allFinished && isReplaying) {
           setTimeout(() => {
             setIsReplaying(false)
             setReplayFinished(true)
-          }, 100)
+          }, 500) // Small delay after last horse finishes
         }
 
         return next
@@ -519,63 +538,91 @@ function RaceAnimation({
 
   const showingAnimation = isAnimating || isReplaying
 
-  return (
-    <div className="flex flex-col h-full">
-      <header className="p-4 border-b flex justify-between items-center">
-        <div>
-          <h1 className="text-lg font-bold">Race {race.number}</h1>
-          <p className="text-xs text-muted-foreground">{race.distance}</p>
-        </div>
-        {showingAnimation ? (
-          <Badge variant="destructive" className="animate-pulse">
-            {isReplaying ? 'REPLAY' : 'LIVE'}
-          </Badge>
-        ) : (
-          <Badge>FINISHED</Badge>
-        )}
-      </header>
 
-      {!showingAnimation && (
-        <div className="p-4 border-b">
-          <Button variant="outline" className="w-full" onClick={onClose}>
+  return (
+    <div className="fixed inset-0 bg-background flex flex-col z-50">
+      <header className="p-4 border-b">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-lg font-bold">Race {race.number}</h1>
+            <p className="text-xs text-muted-foreground">{race.distance}</p>
+          </div>
+          {showingAnimation ? (
+            <Badge variant="destructive" className="animate-pulse">
+              {isReplaying ? 'REPLAY' : 'LIVE'}
+            </Badge>
+          ) : (
+            <Badge variant="secondary">FINISHED</Badge>
+          )}
+        </div>
+        <div className="flex gap-2 mt-3">
+          <Button variant="outline" size="sm" onClick={onClose}>
             Back to Races
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setProgress({})
+              setFinishOrder([])
+              setReplayFinished(false)
+              setIsReplaying(true)
+            }}
+            disabled={showingAnimation}
+          >
+            Watch Replay
+          </Button>
         </div>
-      )}
+      </header>
 
-      <div className="flex-1 p-4 space-y-3 overflow-y-auto">
+
+      <div className="flex-1 p-4 space-y-2 overflow-y-auto">
         {race.horses.map(horse => {
           const horseProgress = progress[horse.id] || 0
-          const placement = race.results?.indexOf(horse.id)
+
+          // Use actual finish order for placement (tracks when horses visually cross the line)
+          const placement = finishOrder.indexOf(horse.id)
+          const hasFinished = placement >= 0
 
           return (
-            <div key={horse.id} className="space-y-1">
-              <div className="flex justify-between items-center text-sm">
-                <div className="flex items-center gap-2">
-                  <div
-                    className="w-6 h-6 rounded flex items-center justify-center text-white text-xs font-bold"
-                    style={{ backgroundColor: horse.color }}
-                  >
-                    {horse.number}
-                  </div>
-                  <span className="font-medium">{horse.name}</span>
-                </div>
-                {!showingAnimation && placement !== undefined && placement >= 0 && placement < 3 && (
-                  <Badge variant={placement === 0 ? "default" : "secondary"} className="text-xs">
-                    {placement === 0 ? '1st' : placement === 1 ? '2nd' : '3rd'}
-                  </Badge>
-                )}
+            <div key={horse.id} className="flex items-center">
+              {/* Horse number badge */}
+              <div
+                className="w-6 h-6 rounded flex-shrink-0 flex items-center justify-center text-white text-xs font-bold mr-2"
+                style={{ backgroundColor: horse.color }}
+              >
+                {horse.number}
               </div>
-              <div className="h-8 bg-muted rounded-full overflow-hidden relative">
+
+              {/* Progress bar track - no gap to finish line */}
+              <div className="flex-1 h-3 bg-muted rounded-l-full overflow-hidden">
                 <div
-                  className="h-full transition-all duration-100 rounded-full flex items-center justify-end pr-2"
+                  className="h-full transition-all duration-100 rounded-l-full"
                   style={{
                     width: `${horseProgress}%`,
                     backgroundColor: horse.color,
                   }}
-                >
-                  <span className="text-lg">🏇</span>
-                </div>
+                />
+              </div>
+
+              {/* Finish line - directly adjacent to progress bar */}
+              <div className="w-0.5 h-5 bg-foreground flex-shrink-0" />
+
+              {/* Results area */}
+              <div className="w-12 flex-shrink-0 flex justify-center ml-1">
+                {hasFinished && placement < 3 ? (
+                  <Badge
+                    variant={placement === 0 ? "default" : "secondary"}
+                    className={cn(
+                      "text-xs",
+                      placement === 0 && "bg-yellow-500 hover:bg-yellow-500"
+                    )}
+                  >
+                    {placement === 0 ? '1st' : placement === 1 ? '2nd' : '3rd'}
+                  </Badge>
+                ) : hasFinished ? (
+                  <span className="text-xs text-muted-foreground">{placement + 1}th</span>
+                ) : null}
               </div>
             </div>
           )

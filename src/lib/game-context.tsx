@@ -8,12 +8,15 @@ interface GameState {
   bets: Bet[]
   balance: number
   currentRaceAnimation: string | null // race ID being animated
+  isFullScreen: boolean // hide bottom nav for immersive views
 }
 
 interface GameContextType extends GameState {
   placeBet: (raceId: string, raceNumber: number, betType: BetType, selections: string[], amount: number) => boolean
   startRace: (raceId: string) => void
   isRaceAnimating: (raceId: string) => boolean
+  resetGame: () => void
+  setFullScreen: (value: boolean) => void
 }
 
 const GameContext = createContext<GameContextType | null>(null)
@@ -24,6 +27,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     bets: store.getBets(),
     balance: store.getBalance(),
     currentRaceAnimation: null,
+    isFullScreen: false,
   })
 
   const refreshState = useCallback(() => {
@@ -84,12 +88,29 @@ export function GameProvider({ children }: { children: ReactNode }) {
     return state.currentRaceAnimation === raceId
   }, [state.currentRaceAnimation])
 
+  const resetGame = useCallback(() => {
+    store.reset()
+    setState({
+      races: store.getRaces(),
+      bets: store.getBets(),
+      balance: store.getBalance(),
+      currentRaceAnimation: null,
+      isFullScreen: false,
+    })
+  }, [])
+
+  const setFullScreen = useCallback((value: boolean) => {
+    setState(prev => ({ ...prev, isFullScreen: value }))
+  }, [])
+
   return (
     <GameContext.Provider value={{
       ...state,
       placeBet,
       startRace,
       isRaceAnimating,
+      resetGame,
+      setFullScreen,
     }}>
       {children}
     </GameContext.Provider>

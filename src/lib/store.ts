@@ -62,17 +62,19 @@ function generateHorses(count: number): Horse[] {
 }
 
 // Initial mock races for today
-const initialRaces: Race[] = [
-  { id: 'race-1', number: 1, status: 'live', minutesToPost: 0, distance: '6 Furlongs', horses: generateHorses(8) },
-  { id: 'race-2', number: 2, status: 'upcoming', minutesToPost: 15, distance: '1 Mile', horses: generateHorses(8) },
-  { id: 'race-3', number: 3, status: 'upcoming', minutesToPost: 30, distance: '6 Furlongs', horses: generateHorses(6) },
-  { id: 'race-4', number: 4, status: 'upcoming', minutesToPost: 45, distance: '1 1/8 Miles', horses: generateHorses(8) },
-  { id: 'race-5', number: 5, status: 'upcoming', minutesToPost: 60, distance: '7 Furlongs', horses: generateHorses(7) },
-  { id: 'race-6', number: 6, status: 'upcoming', minutesToPost: 75, distance: '1 Mile', horses: generateHorses(8) },
-]
+function createInitialRaces(): Race[] {
+  return [
+    { id: 'race-1', number: 1, status: 'live', minutesToPost: 0, distance: '6 Furlongs', horses: generateHorses(8) },
+    { id: 'race-2', number: 2, status: 'upcoming', minutesToPost: 15, distance: '1 Mile', horses: generateHorses(8) },
+    { id: 'race-3', number: 3, status: 'upcoming', minutesToPost: 30, distance: '6 Furlongs', horses: generateHorses(6) },
+    { id: 'race-4', number: 4, status: 'upcoming', minutesToPost: 45, distance: '1 1/8 Miles', horses: generateHorses(8) },
+    { id: 'race-5', number: 5, status: 'upcoming', minutesToPost: 60, distance: '7 Furlongs', horses: generateHorses(7) },
+    { id: 'race-6', number: 6, status: 'upcoming', minutesToPost: 75, distance: '1 Mile', horses: generateHorses(8) },
+  ]
+}
 
 // In-memory state
-let races: Race[] = initialRaces
+let races: Race[] = createInitialRaces()
 let bets: Bet[] = []
 let balance: number = 1000 // Starting balance
 
@@ -127,6 +129,13 @@ export const store = {
 
       return { ...bet, status: won ? 'won' : 'lost', payout }
     })
+  },
+
+  // Reset everything for dev/testing
+  reset: () => {
+    races = createInitialRaces()
+    bets = []
+    balance = 1000
   }
 }
 

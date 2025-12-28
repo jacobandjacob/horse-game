@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Home, Trophy, Ticket } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useGame } from '@/lib/game-context'
 
 const navItems = [
   { href: '/', label: 'Home', icon: Home },
@@ -13,6 +14,9 @@ const navItems = [
 
 export function BottomNav() {
   const pathname = usePathname()
+  const { isFullScreen } = useGame()
+
+  if (isFullScreen) return null
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 border-t bg-background h-24">
